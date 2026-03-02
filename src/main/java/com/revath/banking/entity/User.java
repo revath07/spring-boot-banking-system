@@ -1,10 +1,15 @@
 package com.revath.banking.entity;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
+import java.util.*;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name="users")
@@ -15,7 +20,11 @@ public class User {
 	private Long id;
 	private String name;
 	private String email;
-	private String password;
+	@JsonIgnore private String password;
+	
+	@OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+	@JsonIgnore private List<Account> accounts;
+	
 	public Long getId()
 	{
 		return id;
@@ -47,6 +56,14 @@ public class User {
 	public void setPassword(String password)
 	{
 		this.password=password;
+	}
+	public List<Account> getAccounts()
+	{
+		return accounts;
+	}
+	public void setAccounts(List<Account> accounts)
+	{
+		this.accounts=accounts;
 	}
 
 }
