@@ -1,5 +1,6 @@
 package com.revath.banking.exception;
 
+import java.time.LocalDateTime;
 import java.util.*;
 
 import org.springframework.http.HttpStatus;
@@ -8,6 +9,10 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import com.revath.banking.dto.ApiErrorResponse;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -33,11 +38,19 @@ public class GlobalExceptionHandler {
 	}
 	
 	@ExceptionHandler(RuntimeException.class)
-	public ResponseEntity<Map<String, String>> handleRuntime(RuntimeException e) {
-	    Map<String, String> error = new HashMap<>();
-	    error.put("message", e.getMessage());
-	    return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
-	}
+    public ResponseEntity<ApiErrorResponse> handleRuntimeException(
+            RuntimeException ex,
+            HttpServletRequest request) {
+
+        ApiErrorResponse error = new ApiErrorResponse();
+
+        error.setStatus("error");
+        error.setMessage(ex.getMessage());
+        error.setTimestamp(LocalDateTime.now());
+        error.setPath(request.getRequestURI());
+
+        return ResponseEntity.badRequest().body(error);
+    }
 
 
 }

@@ -1,12 +1,16 @@
 package com.revath.banking.repository;
 
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.revath.banking.entity.Account;
 import com.revath.banking.entity.Transaction;
+import com.revath.banking.entity.TransactionType;
 
 public interface TransactionRepository extends JpaRepository<Transaction,Long> {
 	
@@ -14,5 +18,8 @@ public interface TransactionRepository extends JpaRepository<Transaction,Long> {
 	
 	Page<Transaction> findByAccountOrderByTransactionTimeDesc(Account account, Pageable pageable);
 	
+	List<Transaction> findByAccount_AccountNumberAndTransactionType(String accountNumber, TransactionType transactionType);
+	
+	List<Transaction> findByAccount_AccountNumberAndTransactionTimeBetween(String accountNumber,LocalDateTime start,LocalDateTime end);
 
 }

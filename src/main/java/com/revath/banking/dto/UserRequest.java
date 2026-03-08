@@ -12,6 +12,9 @@ public class UserRequest {
 	@Email(message="Invalid email format")
 	private String email;
 	
+//	@NotBlank(message="phone number is required")
+//	private String phoneNumber;
+	
 	@NotBlank(message="Password is required")
 	@Size(min=8,message="Password must be at least 8 characters")
 	private String password;
@@ -39,5 +42,13 @@ public class UserRequest {
 	{
 		return password;
 	}
+//	public String getphoneNumber()
+//	{
+//		return phoneNumber;
+//	}
+//	public void setPhoneNumber(String number)
+//	{
+//		this.phoneNumber=number;
+//	}
 
 }

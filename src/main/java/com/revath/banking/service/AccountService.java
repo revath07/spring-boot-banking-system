@@ -1,18 +1,24 @@
 package com.revath.banking.service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import com.revath.banking.dto.AccountDetailsResponse;
 import com.revath.banking.dto.AccountResponse;
 import com.revath.banking.dto.DepositRequest;
 import com.revath.banking.dto.TransactionResponse;
 import com.revath.banking.dto.TransferRequest;
 import com.revath.banking.dto.TransferResponse;
+import com.revath.banking.dto.UserAccountResponse;
 import com.revath.banking.dto.WithdrawRequest;
 import com.revath.banking.entity.Account;
 import com.revath.banking.entity.Transaction;
@@ -35,6 +41,9 @@ public class AccountService {
 	
 	@Autowired
 	private TransactionRepository transactionRepository;
+	
+	@Autowired
+	private EmailService emailService;
 	
 	public AccountResponse createAccount(Long userid)
 	{
@@ -72,6 +81,13 @@ public class AccountService {
 		transaction.setTransactionTime(LocalDateTime.now());
 		transaction.setDescription("Deposit successful");
 		transactionRepository.save(transaction);
+		emailService.sendEmail(
+		        account.getUser().getEmail(),
+		        "Deposit Successful",
+		        "₹" + request.getAmount() +
+		        " has been deposited into your account.\nCurrent Balance: ₹"
+		        + account.getBalance()
+		);
 		return response;
 	}
 	
@@ -102,6 +118,13 @@ public class AccountService {
 		transaction.setTransactionTime(LocalDateTime.now());
 		transaction.setDescription("Withdrawal successful");
 		transactionRepository.save(transaction);
+		emailService.sendEmail(
+		        account.getUser().getEmail(),
+		        "Withdrawal Alert",
+		        "₹" + request.getAmount() +
+		        " has been withdrawn from your account.\nRemaining Balance: ₹"
+		        + account.getBalance()
+		);
 		return response;
 		
 		
@@ -146,30 +169,112 @@ public class AccountService {
 		    receiverTransaction.setDescription("Received from " + sender.getAccountNumber());
 
 		    transactionRepository.save(receiverTransaction);
+		    emailService.sendEmail(
+		            sender.getUser().getEmail(),
+		            "Money Transfer Successful",
+		            "₹" + request.getAmount() +
+		            " transferred to account " +
+		            receiver.getAccountNumber() +
+		            ".\nRemaining Balance: ₹" + sender.getBalance()
+		    );
+		    emailService.sendEmail(
+		            receiver.getUser().getEmail(),
+		            "Money Received",
+		            "₹" + request.getAmount() +
+		            " received from account " +
+		            sender.getAccountNumber() +
+		            ".\nCurrent Balance: ₹" + receiver.getBalance()
+		    );
 		    
 		return response;
 	}
 	
-	public Page<TransactionResponse> getTransactions(String accountNumber,int page,int size)
+	public Page<TransactionResponse> getTransactions(String accountNumber, int page, int size) {
+
+	    Account account = accountRepository.findByAccountNumber(accountNumber)
+	            .orElseThrow(() -> new RuntimeException("Account not found"));
+
+	    Pageable pageable = PageRequest.of(page, size);
+
+	    Page<Transaction> transactionPage =
+	            transactionRepository.findByAccountOrderByTransactionTimeDesc(account, pageable);
+
+	    return transactionPage.map(transaction -> {
+	        TransactionResponse response = new TransactionResponse();
+	        response.setTransactionType(transaction.getTransactionType());
+	        response.setAmount(transaction.getAmount());
+	        response.setReferenceAccountNumber(transaction.getReferenceAccountNumber());
+	        response.setDescription(transaction.getDescription());
+	        response.setTransactionTime(transaction.getTransactionTime());
+	        return response;
+	    });
+	}
+	
+	public AccountDetailsResponse getAccountDetails(String accountNumber)
 	{
 		Account account=accountRepository.findByAccountNumber(accountNumber)
 				.orElseThrow(()->new RuntimeException("Account Not Found"));
-		Pageable pageable=PageRequest.of(page, size);
-		Page<Transaction> transactionPage=transactionRepository.findByAccountOrderByTransactionTimeDesc(account,Pageable);
-		List<TransactionResponse> responseList = transactions.stream()
-		        .map(transaction -> {
-		            TransactionResponse response = new TransactionResponse();
-		            response.setTransactionType(transaction.getTransactionType());
-		            response.setAmount(transaction.getAmount());
-		            response.setReferenceAccountNumber(transaction.getReferenceAccountNumber());
-		            response.setDescription(transaction.getDescription());
-		            response.setTransactionTime(transaction.getTransactionTime());
-		            return response;
-		        })
-		        .toList();
-	    return responseList;
-		
+		AccountDetailsResponse response=new AccountDetailsResponse();
+		response.setAccountNumber(account.getAccountNumber());
+		response.setBalance(account.getBalance());
+		response.setUserEmail(account.getUser().getEmail());
+		response.setUserName(account.getUser().getName());
+		return response;
 	}
 	
-
+	public List<UserAccountResponse> getAccountByUser(Long userId)
+	{
+		List<Account> accounts=accountRepository.findByUserId(userId);
+		List<UserAccountResponse> responseList=new ArrayList<>();
+		for(Account acc:accounts)
+		{
+			UserAccountResponse res=new UserAccountResponse();
+			res.setAccountNumber(acc.getAccountNumber());
+			res.setBalance(acc.getBalance());
+			responseList.add(res);
+		}
+		return responseList;
+	}
+	
+	public List<TransactionResponse> getTransactionsByType(String accountNumber,TransactionType type)
+	{
+		List<Transaction> transactions =transactionRepository.findByAccount_AccountNumberAndTransactionType(accountNumber,type);
+		List<TransactionResponse> responseList=new ArrayList<>();
+		for(Transaction transaction:transactions)
+		{
+			TransactionResponse response=new TransactionResponse();
+			response.setAmount(transaction.getAmount());
+			response.setTransactionType(transaction.getTransactionType());
+			response.setReferenceAccountNumber(transaction.getReferenceAccountNumber());
+			response.setDescription(transaction.getDescription());
+			response.setTransactionTime(transaction.getTransactionTime());
+			responseList.add(response);
+		}
+		return responseList;
+		
+		
+	}
+	public List<TransactionResponse> getStatement(String accountNumber,LocalDate fromDate,LocalDate toDate)
+	{
+		LocalDateTime start = fromDate.atStartOfDay();
+	    LocalDateTime end = toDate.atTime(23,59,59);
+	    List<Transaction> transactions=transactionRepository.findByAccount_AccountNumberAndTransactionTimeBetween(accountNumber,start,end);
+	    List<TransactionResponse> responseList=new ArrayList<>();
+	    for(Transaction transaction:transactions)
+	    {
+	    	TransactionResponse response= new TransactionResponse();
+	    	response.setTransactionType(transaction.getTransactionType());
+	    	response.setAmount(transaction.getAmount());
+	    	response.setReferenceAccountNumber(transaction.getReferenceAccountNumber());
+	    	response.setDescription(transaction.getDescription());
+	    	response.setTransactionTime(transaction.getTransactionTime());
+	    	responseList.add(response);
+	    }
+	    return responseList;
+	}
+	
+	
 }
+	
+
+
