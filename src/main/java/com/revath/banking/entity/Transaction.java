@@ -37,6 +37,9 @@ public class Transaction {
 	
 	private LocalDateTime transactionTime;
 	
+//	@Column(unique = true)
+//	private String transactionReference;
+	
 	public Long getId() {
         return id;
     }
@@ -92,6 +95,15 @@ public class Transaction {
     public void setTransactionTime(LocalDateTime transactionTime) {
         this.transactionTime = transactionTime;
     }
+    
+//    public void setTransactionReference(String transactionReference)
+//    {
+//    	this.transactionReference=transactionReference;
+//    }
+//    public String getTransactionReference()
+//    {
+//    	return transactionReference;
+//    }
 	
 	
 	

@@ -10,7 +10,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 
 import com.revath.banking.dto.AccountDetailsResponse;
 import com.revath.banking.dto.AccountResponse;
@@ -22,13 +26,16 @@ import com.revath.banking.dto.UserAccountResponse;
 import com.revath.banking.dto.WithdrawRequest;
 import com.revath.banking.entity.Account;
 import com.revath.banking.entity.Transaction;
+import com.revath.banking.entity.TransactionRequest;
 import com.revath.banking.entity.TransactionType;
 import com.revath.banking.entity.User;
 import com.revath.banking.repository.AccountRepository;
 import com.revath.banking.repository.TransactionRepository;
+import com.revath.banking.repository.TransactionRequestRepository;
 import com.revath.banking.repository.UserRepository;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
-import jakarta.transaction.Transactional;
 
 @Service
 @Transactional
@@ -44,6 +51,15 @@ public class AccountService {
 	
 	@Autowired
 	private EmailService emailService;
+	
+	@Autowired
+	private BCryptPasswordEncoder passwordEncoder;
+	
+	@Autowired
+	private PinService pinService;
+	
+	@Autowired
+	private TransactionRequestRepository transactionRequestRepository;
 	
 	public AccountResponse createAccount(Long userid)
 	{
@@ -93,17 +109,22 @@ public class AccountService {
 	
 	public AccountResponse withdraw(String accountNumber,WithdrawRequest request)
 	{
+		User currentuser = getCurrentUser();
+		//boolean pinValid= validateTransactionPin(currentuser,request.getPin());
+		boolean pinValid = pinService.validateTransactionPin(currentuser,request.getPin());
+		if(!pinValid)
+			throw new RuntimeException("Invalid transaction Pin");
 		Account account=accountRepository.findByAccountNumber(accountNumber)
 				.orElseThrow(()-> new RuntimeException("Account Not Found"));
-		if(request.getAmount()==null || request.getAmount().compareTo(BigDecimal.ZERO)<=0)
+		if(!account.getUser().getId().equals(currentuser.getId()))
 		{
-			throw new RuntimeException("WIthdrawl amount must be greater than zero");
+			throw new RuntimeException("You cannot access another user's account");
 		}
-		
 		if(account.getBalance().compareTo(request.getAmount())<0)
 		{
 			throw new RuntimeException("Insufficient Balance");
 		}
+		validateDailyWithdrawalLimit(currentuser,request.getAmount());
 		account.setBalance(account.getBalance().subtract(request.getAmount()));
 		Account updatedAccount=accountRepository.save(account);
 		AccountResponse response=new AccountResponse();
@@ -132,12 +153,33 @@ public class AccountService {
 	
 	public TransferResponse transfer(TransferRequest request)
 	{
+		User currentUser=getCurrentUser();
+		//boolean pinValid=validateTransactionPin(currentUser,request.getPin());
+		boolean pinValid = pinService.validateTransactionPin(currentUser,request.getPin());
+		Optional<TransactionRequest> existing =
+		        transactionRequestRepository.findByRequestId(request.getRequestId());
+
+		if(existing.isPresent()) {
+		    throw new RuntimeException("Duplicate transaction request");
+		}
+		TransactionRequest txnRequest = new TransactionRequest();
+		txnRequest.setRequestId(request.getRequestId());
+		txnRequest.setStatus("SUCCESS");
+
+		transactionRequestRepository.save(txnRequest);
+		if(!pinValid)
+			throw new RuntimeException("Invalid transaction Pin");
 		Account sender=accountRepository.findByAccountNumber(request.getFromAccountNumber())
 				.orElseThrow(()-> new RuntimeException("Sender account not found"));
 		Account receiver=accountRepository.findByAccountNumber(request.getToAccountNumber())
 				.orElseThrow(()-> new RuntimeException("Reciver account not found"));
 		if(sender.getBalance().compareTo(request.getAmount())<0)
 			throw new RuntimeException("Insufficient Balance");
+		if(!sender.getUser().getId().equals(currentUser.getId()))
+		{
+			throw new RuntimeException("You cannot transfer from another user account");
+		}
+		validateDailyTransferLimit(currentUser,request.getAmount());
 		sender.setBalance(sender.getBalance().subtract(request.getAmount()));
 		receiver.setBalance(receiver.getBalance().add(request.getAmount()));
 		accountRepository.save(sender);
@@ -271,6 +313,84 @@ public class AccountService {
 	    	responseList.add(response);
 	    }
 	    return responseList;
+	}
+	private User getCurrentUser()
+	{
+		Authentication aut=SecurityContextHolder.getContext().getAuthentication();
+		String email=aut.getName();
+		return userRepository.findByEmail(email)
+				             .orElseThrow(()->new RuntimeException("User not Found"));
+		
+		
+	}
+	@Transactional(noRollbackFor = RuntimeException.class, propagation = Propagation.REQUIRES_NEW)
+	private boolean validateTransactionPin(User user, String pin)
+	{
+	    System.out.println("User ID: " + user.getId());
+	    System.out.println("Attempts before: " + user.getFailedPinAttempts());
+
+	    if(user.getPinLockedUntil()!=null &&
+	       user.getPinLockedUntil().isAfter(LocalDateTime.now()))
+	    {
+	        throw new RuntimeException("Account locked due to multiple wrong PIN attempts. Try later.");
+	    }
+
+	    if(!passwordEncoder.matches(pin, user.getTransactionPin()))
+	    {
+	        int attempts = user.getFailedPinAttempts() + 1;
+	        System.out.println(attempts);
+	        user.setFailedPinAttempts(attempts);
+
+	        if(attempts >= 3)
+	        {
+	            user.setPinLockedUntil(LocalDateTime.now().plusMinutes(30));
+	            user.setFailedPinAttempts(0);
+	        }
+
+	        userRepository.save(user);
+
+	        return false;
+	    }
+
+	    user.setFailedPinAttempts(0);
+	    user.setPinLockedUntil(null);
+	    userRepository.save(user);
+	    return true;
+	}
+	
+	private void validateDailyTransferLimit(User user,BigDecimal amount)
+	{
+		LocalDate today=LocalDate.now();
+		if(user.getLastTransferDate()==null || !user.getLastTransferDate().equals(today))
+		{
+			user.setDailyTransferUsed(BigDecimal.ZERO);
+			user.setLastTransferDate(today);
+		}
+		BigDecimal newTotal=user.getDailyTransferUsed().add(amount);
+		if(newTotal.compareTo(user.getDailyTransferLimit())>0)
+		{
+			throw new RuntimeException("Daily transfer limit exceeded");
+		}
+		user.setDailyTransferUsed(newTotal);
+		userRepository.save(user);
+	}
+	
+	private void validateDailyWithdrawalLimit(User user,BigDecimal amount)
+	{
+		LocalDate today=LocalDate.now();
+		if(user.getLastWithdrawalDate()==null || !user.getLastWithdrawalDate().equals(today))
+		{
+			user.setDailyWithdrawalUsed(BigDecimal.ZERO);
+			user.setLastWithdrawalDate(today);
+		}
+		BigDecimal newTotal=user.getDailyWithdrawalUsed().add(amount);
+		if(newTotal.compareTo(user.getDailyWithdrawalLimit())>0)
+		{
+			throw new RuntimeException("Daily withdrawl Limit exceeded");
+		}
+		user.setDailyWithdrawalUsed(newTotal);
+		userRepository.save(user);
+		
 	}
 	
 	

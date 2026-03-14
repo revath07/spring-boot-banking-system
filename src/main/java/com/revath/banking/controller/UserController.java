@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.revath.banking.dto.LoginRequest;
 import com.revath.banking.dto.ResetPasswordRequest;
+import com.revath.banking.dto.SetPinRequest;
 import com.revath.banking.dto.UserAccountResponse;
 import com.revath.banking.dto.UserRequest;
 import com.revath.banking.dto.UserResponse;
@@ -51,6 +52,13 @@ public class UserController {
 	{
 		userService.resetPassword(request);
 		return "Password updated successfully";
+	}
+	
+	@PostMapping("/set-pin")
+	public ResponseEntity<String> setTransactionPin(@Valid @RequestBody SetPinRequest req)
+	{
+		userService.setTransactionPin(req);
+		return ResponseEntity.ok("Transaction PIN set successfully");
 	}
 	
 

@@ -18,6 +18,10 @@ public class TransferRequest {
 	@DecimalMin(value="0.01",message="Transfer amount must be greater than zero ")
 	private BigDecimal amount;
 	
+	private String pin;
+	
+	private String requestId;
+	
 	public String getFromAccountNumber()
 	{
 		return fromAccountNumber;
@@ -41,6 +45,22 @@ public class TransferRequest {
 	public void setAmount(BigDecimal amount) 
 	{
 	      this.amount = amount;
+	}
+	public void setPin(String pin)
+	{
+		this.pin=pin;
+	}
+	public String getPin()
+	{
+		return pin;
+	}
+	public String getRequestId()
+	{
+		return requestId;
+	}
+	public void setRequestId(String requestId)
+	{
+		this.requestId=requestId;
 	}
 	
 

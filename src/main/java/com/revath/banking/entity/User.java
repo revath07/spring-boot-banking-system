@@ -2,6 +2,10 @@ package com.revath.banking.entity;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -21,6 +25,15 @@ public class User {
 	private String name;
 	private String email;
 	@JsonIgnore private String password;
+	private String transactionPin;
+	private int failedPinAttempts;
+	private LocalDateTime pinLockedUntil;
+	private BigDecimal dailyTransferLimit=new BigDecimal("100000");
+	private BigDecimal dailyTransferUsed=BigDecimal.ZERO;
+	private LocalDate lastTransferDate;
+	private BigDecimal dailyWithdrawalLimit = new BigDecimal("40000");
+	private BigDecimal dailyWithdrawalUsed = BigDecimal.ZERO;
+	private LocalDate lastWithdrawalDate;
 	
 	@OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
 	@JsonIgnore private List<Account> accounts;
@@ -65,5 +78,78 @@ public class User {
 	{
 		this.accounts=accounts;
 	}
+	public String getTransactionPin()
+	{
+		return transactionPin;
+	}
+	public void setTransactionPin(String pin)
+	{
+		this.transactionPin=pin;
+	}
+	public int getFailedPinAttempts() {
+	    return failedPinAttempts;
+	}
+
+	public void setFailedPinAttempts(int failedPinAttempts) {
+	    this.failedPinAttempts = failedPinAttempts;
+	}
+
+	public LocalDateTime getPinLockedUntil() {
+	    return pinLockedUntil;
+	}
+
+	public void setPinLockedUntil(LocalDateTime pinLockedUntil) {
+	    this.pinLockedUntil = pinLockedUntil;
+	}
+	public void setDailyTransferLimit(BigDecimal dailyTransferLimit)
+	{
+		this.dailyTransferLimit=dailyTransferLimit;
+	}
+	public BigDecimal getDailyTransferLimit()
+	{
+		return dailyTransferLimit;
+	}
+	public void setDailyTransferUsed(BigDecimal dailyTransferUsed)
+	{
+		this.dailyTransferUsed=dailyTransferUsed;
+	}
+	public BigDecimal getDailyTransferUsed()
+	{
+		return dailyTransferUsed;
+	}
+	public LocalDate getLastTransferDate()
+	{
+		return lastTransferDate;
+	}
+	public void setLastTransferDate(LocalDate lastTransferDate)
+	{
+		this.lastTransferDate=lastTransferDate;
+	}
+	public BigDecimal getDailyWithdrawalLimit() {
+	    return dailyWithdrawalLimit;
+	}
+
+	public void setDailyWithdrawalLimit(BigDecimal dailyWithdrawalLimit) {
+	    this.dailyWithdrawalLimit = dailyWithdrawalLimit;
+	}
+
+	public BigDecimal getDailyWithdrawalUsed() {
+	    return dailyWithdrawalUsed;
+	}
+
+	public void setDailyWithdrawalUsed(BigDecimal dailyWithdrawalUsed) {
+	    this.dailyWithdrawalUsed = dailyWithdrawalUsed;
+	}
+
+	public LocalDate getLastWithdrawalDate() {
+	    return lastWithdrawalDate;
+	}
+
+	public void setLastWithdrawalDate(LocalDate lastWithdrawalDate) {
+	    this.lastWithdrawalDate = lastWithdrawalDate;
+	}
+
+	
+	
 
 }

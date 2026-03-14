@@ -1,11 +1,14 @@
 package com.revath.banking.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.revath.banking.dto.LoginRequest;
 import com.revath.banking.dto.ResetPasswordRequest;
+import com.revath.banking.dto.SetPinRequest;
 import com.revath.banking.dto.UserRequest;
 import com.revath.banking.dto.UserResponse;
 import com.revath.banking.entity.EmailOtp;
@@ -82,6 +85,23 @@ public class UserService {
 		user.setPassword(passwordEncoder.encode(req.getNewPassword()));
 		userRepository.save(user);
 		otpRepository.delete(otp);
+	}
+	
+	public void setTransactionPin(SetPinRequest req)
+	{
+		User user=getCurrentUser();
+		user.setTransactionPin(passwordEncoder.encode(req.getPin()));
+		userRepository.save(user);
+		
+	}
+	private User getCurrentUser()
+	{
+		Authentication aut=SecurityContextHolder.getContext().getAuthentication();
+		String email=aut.getName();
+		return userRepository.findByEmail(email)
+				             .orElseThrow(()->new RuntimeException("User not Found"));
+		
+		
 	}
 	
 
