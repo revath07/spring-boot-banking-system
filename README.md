@@ -1,4 +1,4 @@
-# Mini Banking Backend System
+# Banking Backend System
 
 A secure banking backend built using Spring Boot that supports user authentication, account management, and financial transactions.
 
