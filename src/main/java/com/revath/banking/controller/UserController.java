@@ -2,6 +2,7 @@ package com.revath.banking.controller;
 
 import java.util.List;
 
+import org.hibernate.validator.internal.util.logging.Log;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +23,7 @@ import com.revath.banking.service.AccountService;
 import com.revath.banking.service.UserService;
 
 import jakarta.validation.Valid;
+
 
 @RestController
 @RequestMapping("/api/v1/users")

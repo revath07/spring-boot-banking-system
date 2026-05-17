@@ -63,8 +63,10 @@ public class AccountService {
 	
 	public AccountResponse createAccount(Long userid)
 	{
+		System.out.println("service");
 		User user=userRepository.findById(userid)
 				.orElseThrow(()-> new RuntimeException("User not found"));
+		System.out.println("service after");
 		Account account=new Account();
 		account.setAccountNumber("ACC"+System.currentTimeMillis());
 		account.setBalance(BigDecimal.ZERO);

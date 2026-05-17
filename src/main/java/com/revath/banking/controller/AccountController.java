@@ -38,6 +38,7 @@ public class AccountController {
 	@PostMapping("/create/{userId}")
 	public ApiResponse<AccountResponse> createAccount(@PathVariable Long userId)
 	{
+		System.out.println("controller");
 		AccountResponse response = accountService.createAccount(userId);
 		return new ApiResponse<>("success","Account created successfully",response);
 	}
